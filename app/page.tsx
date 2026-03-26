@@ -1,55 +1,65 @@
 "use client";
 
 import { useState } from "react";
-import { calculateScore } from "@/lib/score";
+import { ethers } from "ethers";
+
+declare global {
+  interface Window {
+    ethereum?: ethers.Eip1193Provider;
+  }
+}
 
 export default function Home() {
-  const [steps, setSteps] = useState(8000);
-  const [streak, setStreak] = useState(5);
+  const [account, setAccount] = useState("");
+  const [status, setStatus] = useState("Not connected");
 
-  const score = calculateScore(steps, streak);
+  async function connectWallet() {
+    try {
+      if (!window.ethereum) {
+        setStatus("MetaMask not found");
+        return;
+      }
 
-  const getLevel = () => {
-    if (score < 20) return "🌱 Seed";
-    if (score < 50) return "🍃 Leaf";
-    if (score < 100) return "🌳 Tree";
-    return "🌲 Forest";
-  };
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const accounts = await provider.send("eth_requestAccounts", []);
+
+      if (!accounts || accounts.length === 0) {
+        setStatus("No wallet account found");
+        return;
+      }
+
+      setAccount(accounts[0]);
+      setStatus("Wallet connected");
+    } catch (error: any) {
+      console.error("Wallet connection failed:", error);
+
+      if (error?.code === "ACTION_REJECTED" || error?.info?.error?.code === 4001) {
+        setStatus("Connection request rejected");
+        return;
+      }
+
+      setStatus("Failed to connect wallet");
+    }
+  }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 bg-gray-100">
-      <h1 className="text-3xl font-bold">🌍 Carbon App MVP</h1>
+    <main className="min-h-screen flex flex-col items-center justify-center gap-6">
+      <h1 className="text-3xl font-bold">Carbon Identity</h1>
 
-      <div className="bg-white p-6 rounded-2xl shadow-md w-80 text-center">
-        <p className="text-gray-500">Steps</p>
-        <p className="text-2xl font-bold">{steps}</p>
+      <button
+        onClick={connectWallet}
+        className="rounded-xl bg-black px-5 py-3 text-white"
+      >
+        Connect Wallet
+      </button>
 
-        <p className="text-gray-500 mt-4">Streak</p>
-        <p className="text-2xl font-bold">{streak} days</p>
+      <p>{status}</p>
 
-        <p className="text-gray-500 mt-4">Score</p>
-        <p className="text-3xl font-bold text-green-600">
-          {score.toFixed(1)}
-        </p>
-
-        <p className="mt-4 text-xl font-semibold">{getLevel()}</p>
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          onClick={() => setSteps(steps + 1000)}
-          className="bg-green-500 text-white px-4 py-2 rounded"
-        >
-          + Steps
-        </button>
-
-        <button
-          onClick={() => setStreak(streak + 1)}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
-        >
-          + Streak
-        </button>
-      </div>
+      {account && (
+        <div className="rounded-xl border px-4 py-3 text-sm">
+          Connected: {account}
+        </div>
+      )}
     </main>
   );
 }
