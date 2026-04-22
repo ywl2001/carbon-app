@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { BrowserProvider, Contract } from "ethers";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "@/lib/contract";
 
@@ -23,10 +23,30 @@ declare global {
 }
 
 function levelToLabel(level: number) {
-  if (level === 1) return "Seed 🌱";
-  if (level === 2) return "Green 🌿";
-  if (level === 3) return "Pro 🌳";
+  if (level === 1) return "Seed";
+  if (level === 2) return "Green";
+  if (level === 3) return "Pro";
   return `Unknown (${level})`;
+}
+
+function levelToEmoji(level: number) {
+  if (level === 1) return "🌱";
+  if (level === 2) return "🌿";
+  if (level === 3) return "🌳";
+  return "❔";
+}
+
+function levelToClasses(level: number | null) {
+  if (level === 1) {
+    return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+  }
+  if (level === 2) {
+    return "bg-lime-50 text-lime-700 ring-1 ring-lime-200";
+  }
+  if (level === 3) {
+    return "bg-green-100 text-green-800 ring-1 ring-green-300";
+  }
+  return "bg-slate-100 text-slate-600 ring-1 ring-slate-200";
 }
 
 function ipfsToHttp(uri: string) {
@@ -34,14 +54,17 @@ function ipfsToHttp(uri: string) {
   return `https://gateway.pinata.cloud/ipfs/${uri.replace("ipfs://", "")}`;
 }
 
-function calculateScore(steps: number) {
-  return Math.min(Math.floor(steps / 1000), 10);
+function shortAddress(address: string) {
+  if (!address) return "-";
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-function calculateLevel(score: number) {
-  if (score <= 3) return 1;
-  if (score <= 7) return 2;
-  return 3;
+function extractAttribute(
+  metadata: Metadata | null,
+  traitType: string
+): string | number | null {
+  const attr = metadata?.attributes?.find((item) => item.trait_type === traitType);
+  return attr ? attr.value : null;
 }
 
 export default function HomePage() {
@@ -58,6 +81,14 @@ export default function HomePage() {
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  const imageUrl = useMemo(() => {
+    const raw = metadata?.image || "";
+    if (!raw) return "https://placehold.co/400x400?text=Carbon+Identity";
+    return ipfsToHttp(raw);
+  }, [metadata]);
+
+  const stepsValue = extractAttribute(metadata, "Steps");
 
   async function loadIdentity() {
     try {
@@ -129,24 +160,24 @@ export default function HomePage() {
       setUpdating(true);
       setError("");
       setSuccessMessage("");
-  
+
       if (!walletAddress) {
         setError("Please connect wallet first.");
         return;
       }
-  
+
       if (!hasMinted) {
         setError("This wallet has not minted a Carbon SBT yet.");
         return;
       }
-  
+
       const steps = Number(stepsInput);
-  
+
       if (!Number.isFinite(steps) || steps <= 0) {
         setError("Please enter a valid number of steps greater than 0.");
         return;
       }
-  
+
       const res = await fetch("/api/update-carbon", {
         method: "POST",
         headers: {
@@ -157,18 +188,24 @@ export default function HomePage() {
           steps,
         }),
       });
-  
-      const data = await res.json();
-  
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to update Carbon SBT");
+
+      let data: any = null;
+
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("Invalid response from server.");
       }
-  
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to update Carbon SBT");
+      }
+
       setStepsInput("");
       setSuccessMessage(
         `Updated successfully. Score = ${data.score}, Level = ${data.levelLabel}`
       );
-  
+
       await loadIdentity();
     } catch (err) {
       console.error(err);
@@ -179,99 +216,232 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="text-3xl font-bold">Carbon SBT Dashboard</h1>
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-emerald-50/40 text-slate-900">
+      <div className="mx-auto max-w-6xl px-6 py-10 md:px-8">
+        <section className="mb-8 rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
+                <span>🌱</span>
+                <span>Dynamic Carbon Identity</span>
+              </div>
 
-        <button
-          onClick={loadIdentity}
-          className="rounded-lg border px-4 py-2"
-        >
-          {walletAddress ? "Reload Identity" : "Connect Wallet"}
-        </button>
+              <div className="space-y-3">
+                <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
+                  Carbon SBT Identity
+                </h1>
+                <p className="max-w-2xl text-base leading-7 text-slate-600">
+                  A behavior-driven on-chain identity that turns daily activity
+                  into a dynamic carbon profile.
+                </p>
+              </div>
+            </div>
 
-        {loading && <p>Loading...</p>}
-        {error && <p className="text-red-600">{error}</p>}
-        {successMessage && <p className="text-green-600">{successMessage}</p>}
-
-        <section className="rounded-xl border p-6 space-y-3">
-          <h2 className="text-xl font-semibold">Wallet</h2>
-          <p>{walletAddress || "-"}</p>
-          <p>Minted: {hasMinted ? "Yes" : "No"}</p>
-        </section>
-
-        <section className="rounded-xl border p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Update from Steps</h2>
-
-          <div className="space-y-2">
-            <label htmlFor="steps" className="block font-medium">
-              Daily Steps
-            </label>
-            <input
-              id="steps"
-              type="number"
-              value={stepsInput}
-              onChange={(e) => setStepsInput(e.target.value)}
-              placeholder="Enter steps, e.g. 7500"
-              className="w-full rounded-lg border px-3 py-2"
-            />
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={loadIdentity}
+                className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                {walletAddress ? "Reload Identity" : "Connect Wallet"}
+              </button>
+            </div>
           </div>
 
-          <button
-            onClick={updateFromSteps}
-            disabled={!hasMinted || updating || loading}
-            className="rounded-lg border px-4 py-2 disabled:opacity-50"
-          >
-            {updating ? "Updating..." : "Update Carbon Identity"}
-          </button>
-
-          <p className="text-sm text-gray-600">
-            This version updates on-chain score and level only. Metadata URI remains unchanged for now.
-          </p>
+          {(loading || error || successMessage) && (
+            <div className="mt-6 space-y-2">
+              {loading && (
+                <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                  Loading identity...
+                </div>
+              )}
+              {error && (
+                <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
+                  {error}
+                </div>
+              )}
+              {successMessage && (
+                <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 ring-1 ring-emerald-200">
+                  {successMessage}
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
-        {hasMinted && (
-          <>
-            <section className="rounded-xl border p-6 space-y-3">
-              <h2 className="text-xl font-semibold">On-chain Identity</h2>
-              <p>Token ID: {tokenId}</p>
-              <p>Score: {score}</p>
-              <p>Level: {level !== null ? levelToLabel(level) : "-"}</p>
-              <p className="break-all">Token URI: {tokenURI}</p>
+        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Identity Card</p>
+                  <h2 className="mt-1 text-2xl font-semibold">Carbon Identity</h2>
+                </div>
+
+                <div
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${levelToClasses(level)}`}
+                >
+                  <span>{levelToEmoji(level ?? 0)}</span>
+                  <span>{level !== null ? levelToLabel(level) : "Not Connected"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-6 p-6 md:grid-cols-[220px_1fr]">
+              <div className="space-y-4">
+                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+                  <img
+                    src={imageUrl}
+                    alt="Carbon Identity"
+                    className="h-[220px] w-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "https://placehold.co/400x400?text=Carbon+Identity";
+                    }}
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">
+                    Wallet
+                  </p>
+                  <p className="mt-2 font-medium text-slate-900">
+                    {shortAddress(walletAddress)}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500 break-all">
+                    {walletAddress || "-"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm text-slate-500">Score</p>
+                    <p className="mt-2 text-3xl font-semibold">{score || "-"}</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm text-slate-500">Level</p>
+                    <p className="mt-2 text-3xl font-semibold">
+                      {level !== null ? levelToLabel(level) : "-"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm text-slate-500">Steps</p>
+                    <p className="mt-2 text-3xl font-semibold">
+                      {stepsValue ?? "-"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-sm text-slate-500">Token ID</p>
+                    <p className="mt-2 text-lg font-medium">{tokenId || "-"}</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-sm text-slate-500">Minted</p>
+                    <p className="mt-2 text-lg font-medium">
+                      {hasMinted ? "Yes" : "No"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <p className="text-sm text-slate-500">Description</p>
+                  <p className="mt-2 leading-7 text-slate-700">
+                    {metadata?.description || "No description"}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <p className="text-sm text-slate-500">Token URI</p>
+                  {tokenURI ? (
+                    <a
+                      href={ipfsToHttp(tokenURI)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 block break-all text-sm text-emerald-700 underline underline-offset-4"
+                    >
+                      {tokenURI}
+                    </a>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-500">-</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="space-y-6">
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5">
+                <p className="text-sm font-medium text-slate-500">Action</p>
+                <h2 className="mt-1 text-2xl font-semibold">Update from Steps</h2>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="steps" className="mb-2 block text-sm font-medium text-slate-700">
+                    Daily Steps
+                  </label>
+                  <input
+                    id="steps"
+                    type="number"
+                    value={stepsInput}
+                    onChange={(e) => setStepsInput(e.target.value)}
+                    placeholder="Enter steps, e.g. 9200"
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                  />
+                </div>
+
+                <button
+                  onClick={updateFromSteps}
+                  disabled={!hasMinted || updating || loading}
+                  className="w-full rounded-2xl bg-emerald-600 px-4 py-3 font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {updating ? "Updating..." : "Update Carbon Identity"}
+                </button>
+
+                <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                  Enter daily steps to recalculate score and level, then sync the
+                  updated identity metadata to IPFS and on-chain storage.
+                </div>
+              </div>
             </section>
 
-            <section className="rounded-xl border p-6 space-y-3">
-              <h2 className="text-xl font-semibold">Metadata</h2>
-              <p>Name: {metadata?.name || "-"}</p>
-              <p>Description: {metadata?.description || "-"}</p>
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5">
+                <p className="text-sm font-medium text-slate-500">Metadata</p>
+                <h2 className="mt-1 text-2xl font-semibold">
+                  Attributes Snapshot
+                </h2>
+              </div>
 
-              {metadata?.image && (
-                <img
-                  src={metadata.image}
-                  alt="Carbon Identity"
-                  className="h-40 w-40 rounded-lg border object-cover"
-                />
-              )}
-
-              <div className="space-y-2">
-                <h3 className="font-medium">Attributes</h3>
+              <div className="space-y-3">
                 {metadata?.attributes?.length ? (
                   metadata.attributes.map((attr, index) => (
                     <div
                       key={`${attr.trait_type}-${index}`}
-                      className="rounded-lg border p-3"
+                      className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
                     >
-                      <p className="font-medium">{attr.trait_type}</p>
-                      <p>{String(attr.value)}</p>
+                      <p className="text-sm text-slate-500">{attr.trait_type}</p>
+                      <p className="font-medium text-slate-900">
+                        {String(attr.value)}
+                      </p>
                     </div>
                   ))
                 ) : (
-                  <p>No attributes</p>
+                  <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
+                    No metadata available.
+                  </div>
                 )}
               </div>
             </section>
-          </>
-        )}
+          </div>
+        </div>
       </div>
     </main>
   );
