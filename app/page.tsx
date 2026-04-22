@@ -1,156 +1,168 @@
 "use client";
 
-import { useState } from "react";
-import { ethers } from "ethers";
-import { CONTRACT_ABI, CONTRACT_ADDRESS } from "@/lib/contract";
+import { useEffect, useState } from "react";
+import { BrowserProvider, Contract } from "ethers";
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from "@/lib/contract";
 
-declare global {
-  interface Window {
-    ethereum?: ethers.Eip1193Provider;
-  }
-}
+type MetadataAttribute = {
+  trait_type: string;
+  value: string | number;
+};
 
-type CarbonMetadata = {
+type Metadata = {
   name?: string;
   description?: string;
   image?: string;
-  attributes?: Array<{
-    trait_type: string;
-    value: string | number;
-  }>;
+  attributes?: MetadataAttribute[];
 };
 
-export default function Home() {
-  const [account, setAccount] = useState("");
-  const [status, setStatus] = useState("Not connected");
-  const [level, setLevel] = useState<string>("");
-  const [tokenId, setTokenId] = useState<string | null>(null);
-  const [tokenUri, setTokenUri] = useState<string>("");
-  const [metadata, setMetadata] = useState<CarbonMetadata | null>(null);
+function levelToLabel(level: number) {
+  if (level === 1) return "Seed 🌱";
+  if (level === 2) return "Green 🌿";
+  if (level === 3) return "Pro 🌳";
+  return `Unknown (${level})`;
+}
 
-  function getLevelLabel(levelValue: number) {
-    switch (levelValue) {
-      case 1:
-        return "Seed 🌱";
-      case 2:
-        return "Leaf 🍃";
-      case 3:
-        return "Tree 🌳";
-      case 4:
-        return "Forest 🌲";
-      default:
-        return `Level ${levelValue}`;
-    }
-  }
+function ipfsToHttp(uri: string) {
+  if (!uri.startsWith("ipfs://")) return uri;
+  return `https://gateway.pinata.cloud/ipfs/${uri.replace("ipfs://", "")}`;
+}
 
-  function toHttpUrl(uri: string) {
-    if (uri.startsWith("ipfs://")) {
-      return `https://ipfs.io/ipfs/${uri.replace("ipfs://", "")}`;
-    }
-    return uri;
-  }
+export default function HomePage() {
+  const [walletAddress, setWalletAddress] = useState("");
+  const [hasMinted, setHasMinted] = useState(false);
+  const [tokenId, setTokenId] = useState("");
+  const [score, setScore] = useState("");
+  const [level, setLevel] = useState<number | null>(null);
+  const [tokenURI, setTokenURI] = useState("");
+  const [metadata, setMetadata] = useState<Metadata | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  async function connectWallet() {
+  async function loadIdentity() {
     try {
-      if (!window.ethereum) {
-        setStatus("MetaMask not found");
+      setLoading(true);
+      setError("");
+
+      if (typeof window === "undefined" || !window.ethereum) {
+        setError("MetaMask not found. Please open this page in a browser with MetaMask enabled.");
         return;
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new BrowserProvider(window.ethereum);
       const accounts = await provider.send("eth_requestAccounts", []);
-
-      if (!accounts || accounts.length === 0) {
-        setStatus("No wallet account found");
-        return;
-      }
-
       const userAddress = accounts[0];
-      setAccount(userAddress);
-      setStatus("Wallet connected");
 
-      const contract = new ethers.Contract(
-        CONTRACT_ADDRESS,
-        CONTRACT_ABI,
-        provider
-      );
+      setWalletAddress(userAddress);
+
+      const contract = new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
 
       const minted = await contract.hasMinted(userAddress);
+      setHasMinted(minted);
 
       if (!minted) {
-        setStatus("Wallet connected, but no SBT found");
+        setTokenId("");
+        setScore("");
+        setLevel(null);
+        setTokenURI("");
+        setMetadata(null);
         return;
       }
 
-      const userLevel = await contract.getLevel(userAddress);
-      const userTokenId = await contract.getTokenIdByOwner(userAddress);
+      const [tokenIdRaw, scoreRaw, levelRaw] = await Promise.all([
+        contract.getTokenIdByOwner(userAddress),
+        contract.getScore(userAddress),
+        contract.getLevel(userAddress),
+      ]);
 
-      console.log("TokenId raw:", userTokenId);
-      console.log("TokenId string:", userTokenId.toString());
+      const tokenIdStr = tokenIdRaw.toString();
+      const scoreStr = scoreRaw.toString();
+      const levelNum = Number(levelRaw);
 
-      const userTokenUri = await contract.tokenURI(userTokenId);
+      setTokenId(tokenIdStr);
+      setScore(scoreStr);
+      setLevel(levelNum);
 
-      setLevel(getLevelLabel(Number(userLevel)));
-      setTokenId(userTokenId.toString());
-      setTokenUri(userTokenUri);
+      const uri = await contract.tokenURI(tokenIdRaw);
+      setTokenURI(uri);
 
-      const metadataUrl = toHttpUrl(userTokenUri);
-      const response = await fetch(metadataUrl);
-      const metadataJson = await response.json();
-
+      const metadataUrl = ipfsToHttp(uri);
+      const res = await fetch(metadataUrl);
+      const metadataJson = await res.json();
       setMetadata(metadataJson);
-      setStatus("Carbon identity loaded");
-    } catch (error: any) {
-      console.error("Wallet connection failed:", error);
-
-      if (error?.code === "ACTION_REJECTED" || error?.info?.error?.code === 4001) {
-        setStatus("Connection request rejected");
-        return;
-      }
-
-      setStatus("Failed to connect wallet");
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Failed to load identity");
+    } finally {
+      setLoading(false);
     }
   }
 
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center gap-6 p-6">
-      <h1 className="text-3xl font-bold">Carbon Identity</h1>
+    <main className="min-h-screen p-8">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <h1 className="text-3xl font-bold">Carbon SBT Dashboard</h1>
 
-      <button
-        onClick={connectWallet}
-        className="rounded-xl bg-black px-5 py-3 text-white"
-      >
-        Connect Wallet
-      </button>
+        <button
+          onClick={loadIdentity}
+          className="rounded-lg border px-4 py-2"
+        >
+          Connect Wallet
+        </button>
 
-      <p>{status}</p>
+        {loading && <p>Loading...</p>}
+        {error && <p className="text-red-600">{error}</p>}
 
-      {account && (
-        <div className="w-full max-w-2xl rounded-2xl border p-4 text-sm">
-          <p><strong>Connected:</strong> {account}</p>
-          {level && <p><strong>Level:</strong> {level}</p>}
-          {tokenId && <p><strong>Token ID:</strong> {tokenId ?? "N/A"}</p>}
-          {tokenUri && <p><strong>Token URI:</strong> {tokenUri}</p>}
-        </div>
-      )}
+        <section className="rounded-xl border p-6 space-y-3">
+          <h2 className="text-xl font-semibold">Wallet</h2>
+          <p>{walletAddress || "-"}</p>
+          <p>Minted: {hasMinted ? "Yes" : "No"}</p>
+        </section>
 
-      {metadata && (
-        <div className="w-full max-w-2xl rounded-2xl border p-6">
-          <h2 className="text-2xl font-semibold">{metadata.name}</h2>
-          <p className="mt-2 text-gray-700">{metadata.description}</p>
+        {hasMinted && (
+          <>
+            <section className="rounded-xl border p-6 space-y-3">
+              <h2 className="text-xl font-semibold">On-chain Identity</h2>
+              <p>Token ID: {tokenId}</p>
+              <p>Score: {score}</p>
+              <p>Level: {level !== null ? levelToLabel(level) : "-"}</p>
+              <p className="break-all">Token URI: {tokenURI}</p>
+            </section>
 
-          <div className="mt-4 space-y-2">
-            {metadata.attributes?.map((attr, index) => (
-              <div
-                key={`${attr.trait_type}-${index}`}
-                className="rounded-xl border px-4 py-2"
-              >
-                <strong>{attr.trait_type}:</strong> {String(attr.value)}
+            <section className="rounded-xl border p-6 space-y-3">
+              <h2 className="text-xl font-semibold">Metadata</h2>
+              <p>Name: {metadata?.name || "-"}</p>
+              <p>Description: {metadata?.description || "-"}</p>
+
+              {metadata?.image && (
+                <img
+                  src={metadata.image}
+                  alt="Carbon Identity"
+                  className="h-40 w-40 rounded-lg border object-cover"
+                />
+              )}
+
+              <div className="space-y-2">
+                <h3 className="font-medium">Attributes</h3>
+                {metadata?.attributes?.length ? (
+                  metadata.attributes.map((attr, index) => (
+                    <div
+                      key={`${attr.trait_type}-${index}`}
+                      className="rounded-lg border p-3"
+                    >
+                      <p className="font-medium">{attr.trait_type}</p>
+                      <p>{String(attr.value)}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p>No attributes</p>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </section>
+          </>
+        )}
+      </div>
     </main>
   );
 }
