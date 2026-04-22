@@ -129,52 +129,46 @@ export default function HomePage() {
       setUpdating(true);
       setError("");
       setSuccessMessage("");
-
-      if (typeof window === "undefined" || !window.ethereum) {
-        setError("MetaMask not found. Please open this page in a browser with MetaMask enabled.");
-        return;
-      }
-
+  
       if (!walletAddress) {
         setError("Please connect wallet first.");
         return;
       }
-
+  
       if (!hasMinted) {
         setError("This wallet has not minted a Carbon SBT yet.");
         return;
       }
-
+  
       const steps = Number(stepsInput);
-
+  
       if (!Number.isFinite(steps) || steps <= 0) {
         setError("Please enter a valid number of steps greater than 0.");
         return;
       }
-
-      const newScore = calculateScore(steps);
-      const newLevel = calculateLevel(newScore);
-
-      const provider = new BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-
-      const contract = new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-
-      const currentTokenId = await contract.getTokenIdByOwner(walletAddress);
-      const currentTokenURI = await contract.tokenURI(currentTokenId);
-
-      const tx = await contract.updateCarbonData(
-        walletAddress,
-        newScore,
-        newLevel,
-        currentTokenURI
-      );
-
-      await tx.wait();
-
+  
+      const res = await fetch("/api/update-carbon", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userAddress: walletAddress,
+          steps,
+        }),
+      });
+  
+      const data = await res.json();
+  
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update Carbon SBT");
+      }
+  
       setStepsInput("");
-      setSuccessMessage(`Updated successfully. Score = ${newScore}, Level = ${levelToLabel(newLevel)}`);
-
+      setSuccessMessage(
+        `Updated successfully. Score = ${data.score}, Level = ${data.levelLabel}`
+      );
+  
       await loadIdentity();
     } catch (err) {
       console.error(err);
