@@ -155,6 +155,58 @@ export default function HomePage() {
     }
   }
 
+  async function createIdentity() {
+    try {
+      setLoading(true);
+      setError("");
+      setSuccessMessage("");
+
+      if (!walletAddress) {
+        setError("Please connect wallet first.");
+        return;
+      }
+
+      const res = await fetch("/api/create-identity", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userAddress: walletAddress,
+        }),
+      });
+
+      let data: any = null;
+
+      try {
+        data = await res.json();
+      } catch {
+        setError("Invalid response from server.");
+        return;
+      }
+
+      // 這裡不要 throw，改成友善處理
+      if (!res.ok) {
+        if (data?.error === "This address already has a Carbon Identity.") {
+          setSuccessMessage("This wallet already has a Carbon Identity.");
+          await loadIdentity();
+          return;
+        }
+
+        setError(data?.error || "Failed to create identity");
+        return;
+      }
+
+      setSuccessMessage("Carbon Identity created successfully.");
+      await loadIdentity();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Failed to create identity");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function updateFromSteps() {
     try {
       setUpdating(true);
@@ -268,180 +320,236 @@ export default function HomePage() {
           )}
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-6 py-5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Identity Card</p>
-                  <h2 className="mt-1 text-2xl font-semibold">Carbon Identity</h2>
-                </div>
+        {!walletAddress && (
+          <div className="mt-10 text-center text-slate-500">
+            Please connect your wallet to continue.
+          </div>
+        )}
 
-                <div
-                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${levelToClasses(level)}`}
-                >
-                  <span>{levelToEmoji(level ?? 0)}</span>
-                  <span>{level !== null ? levelToLabel(level) : "Not Connected"}</span>
+        {/* 🆕 已連接但沒有 SBT */}
+        {walletAddress && !hasMinted && (
+          <div className="mt-10 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+
+            <h2 className="text-2xl font-semibold">
+              Create Your Carbon Identity
+            </h2>
+
+            <p className="mt-2 text-slate-600">
+              Start tracking your daily activity and build your on-chain carbon identity.
+            </p>
+
+            <button
+              onClick={createIdentity}
+              disabled={loading}
+              className="mt-6 rounded-2xl bg-emerald-600 px-6 py-3 text-white font-medium hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {loading ? "Creating..." : "Create Identity"}
+            </button>
+
+          </div>
+        )}
+
+        {walletAddress && hasMinted && (
+          <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-6 py-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">Identity Card</p>
+                    <h2 className="mt-1 text-2xl font-semibold">Carbon Identity</h2>
+                  </div>
+
+                  <div
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${levelToClasses(level)}`}
+                  >
+                    <span>{levelToEmoji(level ?? 0)}</span>
+                    <span>{level !== null ? levelToLabel(level) : "Not Connected"}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="grid gap-6 p-6 md:grid-cols-[220px_1fr]">
-              <div className="space-y-4">
-                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
-                  <img
-                    src={imageUrl}
-                    alt="Carbon Identity"
-                    className="h-[220px] w-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        "https://placehold.co/400x400?text=Carbon+Identity";
-                    }}
-                  />
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">
-                    Wallet
-                  </p>
-                  <p className="mt-2 font-medium text-slate-900">
-                    {shortAddress(walletAddress)}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500 break-all">
-                    {walletAddress || "-"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-5">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm text-slate-500">Score</p>
-                    <p className="mt-2 text-3xl font-semibold">{score || "-"}</p>
+              <div className="grid gap-6 p-6 md:grid-cols-[220px_1fr]">
+                <div className="space-y-4">
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+                    <img
+                      src={imageUrl}
+                      alt="Carbon Identity"
+                      className="h-[220px] w-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          "https://placehold.co/400x400?text=Carbon+Identity";
+                      }}
+                    />
                   </div>
 
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm text-slate-500">Level</p>
-                    <p className="mt-2 text-3xl font-semibold">
-                      {level !== null ? levelToLabel(level) : "-"}
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Wallet
+                    </p>
+                    <p className="mt-2 font-medium text-slate-900">
+                      {shortAddress(walletAddress)}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500 break-all">
+                      {walletAddress || "-"}
                     </p>
                   </div>
+                  {!walletAddress && (
+                    <div className="mt-10 text-center text-slate-500">
+                      Please connect your wallet to continue.
+                    </div>
+                  )}
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm text-slate-500">Steps</p>
-                    <p className="mt-2 text-3xl font-semibold">
-                      {stepsValue ?? "-"}
-                    </p>
-                  </div>
-                </div>
+                  {walletAddress && !hasMinted && (
+                    <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 p-4">
-                    <p className="text-sm text-slate-500">Token ID</p>
-                    <p className="mt-2 text-lg font-medium">{tokenId || "-"}</p>
-                  </div>
+                      <h2 className="text-2xl font-semibold">
+                        Create Your Carbon Identity
+                      </h2>
 
-                  <div className="rounded-2xl border border-slate-200 p-4">
-                    <p className="text-sm text-slate-500">Minted</p>
-                    <p className="mt-2 text-lg font-medium">
-                      {hasMinted ? "Yes" : "No"}
-                    </p>
-                  </div>
-                </div>
+                      <p className="mt-2 text-slate-600">
+                        Start tracking your daily activity and build your on-chain carbon identity.
+                      </p>
 
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <p className="text-sm text-slate-500">Description</p>
-                  <p className="mt-2 leading-7 text-slate-700">
-                    {metadata?.description || "No description"}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <p className="text-sm text-slate-500">Token URI</p>
-                  {tokenURI ? (
-                    <a
-                      href={ipfsToHttp(tokenURI)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 block break-all text-sm text-emerald-700 underline underline-offset-4"
-                    >
-                      {tokenURI}
-                    </a>
-                  ) : (
-                    <p className="mt-2 text-sm text-slate-500">-</p>
+                      <button
+                        onClick={createIdentity}
+                        className="mt-6 rounded-2xl bg-emerald-600 px-6 py-3 text-white font-medium hover:bg-emerald-700"
+                      >
+                        Create Identity
+                      </button>
+                    </div>
                   )}
                 </div>
-              </div>
-            </div>
-          </section>
 
-          <div className="space-y-6">
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-5">
-                <p className="text-sm font-medium text-slate-500">Action</p>
-                <h2 className="mt-1 text-2xl font-semibold">Update from Steps</h2>
-              </div>
+                <div className="space-y-5">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm text-slate-500">Score</p>
+                      <p className="mt-2 text-3xl font-semibold">{score || "-"}</p>
+                    </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="steps" className="mb-2 block text-sm font-medium text-slate-700">
-                    Daily Steps
-                  </label>
-                  <input
-                    id="steps"
-                    type="number"
-                    value={stepsInput}
-                    onChange={(e) => setStepsInput(e.target.value)}
-                    placeholder="Enter steps, e.g. 9200"
-                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-                  />
-                </div>
-
-                <button
-                  onClick={updateFromSteps}
-                  disabled={!hasMinted || updating || loading}
-                  className="w-full rounded-2xl bg-emerald-600 px-4 py-3 font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  {updating ? "Updating..." : "Update Carbon Identity"}
-                </button>
-
-                <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                  Enter daily steps to recalculate score and level, then sync the
-                  updated identity metadata to IPFS and on-chain storage.
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-5">
-                <p className="text-sm font-medium text-slate-500">Metadata</p>
-                <h2 className="mt-1 text-2xl font-semibold">
-                  Attributes Snapshot
-                </h2>
-              </div>
-
-              <div className="space-y-3">
-                {metadata?.attributes?.length ? (
-                  metadata.attributes.map((attr, index) => (
-                    <div
-                      key={`${attr.trait_type}-${index}`}
-                      className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
-                    >
-                      <p className="text-sm text-slate-500">{attr.trait_type}</p>
-                      <p className="font-medium text-slate-900">
-                        {String(attr.value)}
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm text-slate-500">Level</p>
+                      <p className="mt-2 text-3xl font-semibold">
+                        {level !== null ? levelToLabel(level) : "-"}
                       </p>
                     </div>
-                  ))
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
-                    No metadata available.
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm text-slate-500">Steps</p>
+                      <p className="mt-2 text-3xl font-semibold">
+                        {stepsValue ?? "-"}
+                      </p>
+                    </div>
                   </div>
-                )}
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 p-4">
+                      <p className="text-sm text-slate-500">Token ID</p>
+                      <p className="mt-2 text-lg font-medium">{tokenId || "-"}</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 p-4">
+                      <p className="text-sm text-slate-500">Minted</p>
+                      <p className="mt-2 text-lg font-medium">
+                        {hasMinted ? "Yes" : "No"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-sm text-slate-500">Description</p>
+                    <p className="mt-2 leading-7 text-slate-700">
+                      {metadata?.description || "No description"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-sm text-slate-500">Token URI</p>
+                    {tokenURI ? (
+                      <a
+                        href={ipfsToHttp(tokenURI)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 block break-all text-sm text-emerald-700 underline underline-offset-4"
+                      >
+                        {tokenURI}
+                      </a>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-500">-</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </section>
+
+            <div className="space-y-6">
+              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-5">
+                  <p className="text-sm font-medium text-slate-500">Action</p>
+                  <h2 className="mt-1 text-2xl font-semibold">Update from Steps</h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="steps" className="mb-2 block text-sm font-medium text-slate-700">
+                      Daily Steps
+                    </label>
+                    <input
+                      id="steps"
+                      type="number"
+                      value={stepsInput}
+                      onChange={(e) => setStepsInput(e.target.value)}
+                      placeholder="Enter steps, e.g. 9200"
+                      className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                    />
+                  </div>
+
+                  <button
+                    onClick={updateFromSteps}
+                    disabled={!hasMinted || updating || loading}
+                    className="w-full rounded-2xl bg-emerald-600 px-4 py-3 font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    {updating ? "Updating..." : "Update Carbon Identity"}
+                  </button>
+
+                  <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                    Enter daily steps to recalculate score and level, then sync the
+                    updated identity metadata to IPFS and on-chain storage.
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-5">
+                  <p className="text-sm font-medium text-slate-500">Metadata</p>
+                  <h2 className="mt-1 text-2xl font-semibold">
+                    Attributes Snapshot
+                  </h2>
+                </div>
+
+                <div className="space-y-3">
+                  {metadata?.attributes?.length ? (
+                    metadata.attributes.map((attr, index) => (
+                      <div
+                        key={`${attr.trait_type}-${index}`}
+                        className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                      >
+                        <p className="text-sm text-slate-500">{attr.trait_type}</p>
+                        <p className="font-medium text-slate-900">
+                          {String(attr.value)}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
+                      No metadata available.
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </main>
   );

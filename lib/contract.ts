@@ -7,4 +7,5 @@ export const CONTRACT_ABI = [
   "function getTokenIdByOwner(address user) view returns (uint256)",
   "function tokenURI(uint256 tokenId) view returns (string)",
   "function updateCarbonData(address user, uint256 newScore, uint256 newLevel, string newMetadataURI)",
+  "function mint(address to, string metadataURI, uint256 initialScore, uint256 initialLevel)",
 ];
