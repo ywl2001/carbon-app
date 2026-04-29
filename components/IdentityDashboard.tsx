@@ -97,6 +97,7 @@ export default function IdentityDashboard({
   metadata,
 }: Props) {
   const stepsValue = extractAttribute(metadata, "Steps");
+  const streak = extractAttribute(metadata, "Streak") || 0;
   const numericScore = Number(score || 0);
   const { current, next, progress } = getLevelProgress(numericScore);
 
@@ -157,6 +158,13 @@ export default function IdentityDashboard({
               style={{ width: `${progress}%` }}
             />
           </div>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-sm text-gray-500">🔥 Streak</p>
+          <p className="text-xl font-semibold text-green-600">
+            {streak} days
+          </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
