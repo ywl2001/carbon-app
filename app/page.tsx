@@ -8,6 +8,7 @@ import UpdateStepsPanel from "@/components/UpdateStepsPanel";
 import MetadataSnapshot from "@/components/MetadataSnapshot";
 import { useCarbonIdentity } from "@/hooks/useCarbonIdentity";
 import ExplanationCard from "@/components/ExplanationCard";
+import DailyLoopPanel from "@/components/DailyLoopPanel";
 
 export default function HomePage() {
   const {
@@ -29,6 +30,10 @@ export default function HomePage() {
     updateFromSteps,
     explanation,
   } = useCarbonIdentity();
+  const todaySteps =
+    Number(
+      metadata?.attributes?.find((attr) => attr.trait_type === "Steps")?.value || 0
+    );
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-emerald-50/40 text-slate-900">
@@ -67,6 +72,8 @@ export default function HomePage() {
               tokenURI={tokenURI}
               metadata={metadata}
             />
+
+            <DailyLoopPanel steps={todaySteps} />
 
             <UpdateStepsPanel
               stepsInput={stepsInput}

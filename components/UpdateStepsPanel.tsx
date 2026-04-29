@@ -29,14 +29,14 @@ type Props = {
               htmlFor="steps"
               className="mb-2 block text-sm font-medium text-slate-700"
             >
-              Daily Steps
+              Today’s Total Steps
             </label>
             <input
               id="steps"
               type="number"
               value={stepsInput}
               onChange={(e) => setStepsInput(e.target.value)}
-              placeholder="Enter steps, e.g. 9200"
+              placeholder="Enter today's total steps, e.g. 9200"
               className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
             />
           </div>
@@ -52,8 +52,7 @@ type Props = {
         
   
           <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            Enter daily steps to recalculate score and level, then sync the
-            updated identity metadata to IPFS and on-chain storage.
+          Enter your current total steps for today. This will replace today's previous step value and update your Carbon Identity.
           </div>
         </div>
       </section>
