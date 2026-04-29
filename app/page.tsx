@@ -17,7 +17,6 @@ export default function HomePage() {
     level,
     tokenURI,
     metadata,
-    imageUrl,
     stepsInput,
     setStepsInput,
     loading,
@@ -65,7 +64,6 @@ export default function HomePage() {
               level={level}
               tokenURI={tokenURI}
               metadata={metadata}
-              imageUrl={imageUrl}
             />
 
             <UpdateStepsPanel

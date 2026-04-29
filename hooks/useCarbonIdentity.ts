@@ -7,7 +7,7 @@ import type { Metadata } from "@/types/carbon";
 
 declare global {
   interface Window {
-    ethereum?: unknown;
+    ethereum?: any;
   }
 }
 

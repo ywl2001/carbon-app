@@ -64,6 +64,30 @@ function extractAttribute(
   return attr ? attr.value : null;
 }
 
+function getLevelProgress(score: number) {
+  if (score <= 3) {
+    return {
+      current: "Seed",
+      next: "Green",
+      progress: Math.round((score / 4) * 100),
+    };
+  }
+
+  if (score <= 7) {
+    return {
+      current: "Green",
+      next: "Pro",
+      progress: Math.round(((score - 4) / 4) * 100),
+    };
+  }
+
+  return {
+    current: "Pro",
+    next: "Max Level",
+    progress: 100,
+  };
+}
+
 export default function IdentityDashboard({
   walletAddress,
   tokenId,
@@ -73,6 +97,8 @@ export default function IdentityDashboard({
   metadata,
 }: Props) {
   const stepsValue = extractAttribute(metadata, "Steps");
+  const numericScore = Number(score || 0);
+  const { current, next, progress } = getLevelProgress(numericScore);
 
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -113,6 +139,23 @@ export default function IdentityDashboard({
             <p className="mt-2 text-4xl font-semibold text-slate-900">
               {stepsValue ?? "-"}
             </p>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-sm text-slate-500">
+            {current} → {next} ({progress}%)
+          </p>
+
+          <p className="text-xs text-slate-400 mt-1">
+            Next level: {next}
+          </p>
+
+          <div className="w-full bg-slate-200 rounded-full h-2 mt-1">
+            <div
+              className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </div>
 
