@@ -30,6 +30,7 @@ export function useCarbonIdentity() {
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [explanation, setExplanation] = useState<any>(null);
 
   async function loadIdentity() {
     try {
@@ -198,6 +199,8 @@ export function useCarbonIdentity() {
         return;
       }
 
+      setExplanation(data.explanation);
+
       setStepsInput("");
       setSuccessMessage(
         `Updated successfully. Score = ${data.score}, Level = ${data.levelLabel}`
@@ -230,5 +233,6 @@ export function useCarbonIdentity() {
     loadIdentity,
     createIdentity,
     updateFromSteps,
+    explanation,
   };
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Contract, JsonRpcProvider, Wallet } from "ethers";
+import { generateExplanation } from "@/lib/explanation";
 
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS as string;
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL as string;
@@ -77,7 +78,9 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const score = calculateScore(steps);
+        const explanation = generateExplanation(steps);
+
+        const score = explanation.score;
         const levelData = calculateLevel(score);
 
         const svg = generateSVG(score, levelData.label, steps);
@@ -86,22 +89,32 @@ export async function POST(req: NextRequest) {
 
         const metadata = {
             name: "Carbon Identity",
-            description: "Dynamic Carbon Identity",
+            description: explanation.message, // ⭐用 explanation
+
             image: imageBase64,
+
             attributes: [
                 {
-                    trait_type: "Carbon Score",
-                    value: score,
+                  trait_type: "Carbon Score",
+                  value: explanation.score,
                 },
                 {
-                    trait_type: "Level",
-                    value: levelData.label,
+                  trait_type: "Level",
+                  value: levelData.label,
                 },
                 {
-                    trait_type: "Steps",
-                    value: steps,
+                  trait_type: "Steps",
+                  value: steps,
                 },
-            ],
+                {
+                  trait_type: "CO2 Reduction",
+                  value: explanation.co2Reduction,
+                },
+                {
+                  trait_type: "Methodology",
+                  value: "v1-steps-proxy",
+                },
+              ],
         };
 
         const metadataURI = await uploadToIPFS(metadata);
@@ -128,6 +141,7 @@ export async function POST(req: NextRequest) {
             levelLabel: levelData.label,
             metadataURI,
             txHash: tx.hash,
+            explanation,
         });
     } catch (error) {
         console.error("API update-carbon error:", error);
@@ -178,4 +192,4 @@ function generateSVG(score: number, levelLabel: string, steps: number) {
         </text>
       </svg>
     `;
-  }
+}

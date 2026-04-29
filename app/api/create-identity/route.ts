@@ -112,12 +112,19 @@ export async function POST(req: NextRequest) {
     const initialLevel = 1;
     const levelLabel = "Seed";
 
+    const explanation = {
+      score: initialScore,
+      co2Reduction: 0,
+      message: "Carbon Identity created. Start updating your daily activity to grow your identity.",
+      methodology: "v1-steps-proxy",
+    };
+
     const svg = buildInitialSvg(initialScore, levelLabel);
     const imageBase64 = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 
     const metadata = {
       name: "Carbon Identity",
-      description: "Dynamic Carbon Identity",
+      description: explanation.message,
       image: imageBase64,
       attributes: [
         {
@@ -131,6 +138,14 @@ export async function POST(req: NextRequest) {
         {
           trait_type: "Steps",
           value: 0,
+        },
+        {
+          trait_type: "CO2 Reduction",
+          value: 0,
+        },
+        {
+          trait_type: "Methodology",
+          value: "v1-steps-proxy",
         },
       ],
     };
@@ -154,6 +169,7 @@ export async function POST(req: NextRequest) {
       initialLevel,
       levelLabel,
       txHash: tx.hash,
+      explanation,
     });
   } catch (error) {
     console.error("API create-identity error:", error);

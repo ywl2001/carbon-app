@@ -5,6 +5,7 @@ type Props = {
     hasMinted: boolean;
     updating: boolean;
     loading: boolean;
+    explanation?: any;
   };
   
   export default function UpdateStepsPanel({
@@ -47,6 +48,8 @@ type Props = {
           >
             {updating ? "Updating..." : "Update Carbon Identity"}
           </button>
+
+        
   
           <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
             Enter daily steps to recalculate score and level, then sync the
