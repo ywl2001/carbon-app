@@ -7,6 +7,7 @@ import IdentityDashboard from "@/components/IdentityDashboard";
 import UpdateStepsPanel from "@/components/UpdateStepsPanel";
 import MetadataSnapshot from "@/components/MetadataSnapshot";
 import { useCarbonIdentity } from "@/hooks/useCarbonIdentity";
+import ExplanationCard from "@/components/ExplanationCard";
 
 export default function HomePage() {
   const {
@@ -26,6 +27,7 @@ export default function HomePage() {
     loadIdentity,
     createIdentity,
     updateFromSteps,
+    explanation,
   } = useCarbonIdentity();
 
   return (
@@ -73,6 +75,10 @@ export default function HomePage() {
               hasMinted={hasMinted}
               updating={updating}
               loading={loading}
+            />
+
+            <ExplanationCard
+              explanation={explanation}
             />
 
             <MetadataSnapshot

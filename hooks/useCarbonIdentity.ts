@@ -199,9 +199,16 @@ export function useCarbonIdentity() {
         return;
       }
 
-      setExplanation(data.explanation);
+      setExplanation({
+        ...data.explanation,
+        steps: data.steps,
+        score: data.score,
+        co2Reduction: data.explanation?.co2Reduction,
+        methodology: data.explanation?.methodology || "v1-steps-proxy",
+      });
 
       setStepsInput("");
+
       setSuccessMessage(
         `Updated successfully. Score = ${data.score}, Level = ${data.levelLabel}`
       );
