@@ -115,6 +115,8 @@ export function useCarbonIdentity() {
         },
         body: JSON.stringify({
           userAddress: walletAddress,
+          steps: Number(stepsInput),
+          tokenURI,
         }),
       });
 
@@ -181,7 +183,8 @@ export function useCarbonIdentity() {
         },
         body: JSON.stringify({
           userAddress: walletAddress,
-          steps,
+          steps: Number(stepsInput),
+          tokenURI,
         }),
       });
 

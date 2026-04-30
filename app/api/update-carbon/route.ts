@@ -23,12 +23,6 @@ function calculateLevel(score: number) {
   return { level: 3, label: "Pro" };
 }
 
-function yesterday(dateStr: string) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
 async function uploadToIPFS(metadata: unknown) {
   const res = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
     method: "POST",
@@ -65,9 +59,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { userAddress, steps } = body as {
+    const { userAddress, steps, tokenURI } = body as {
       userAddress?: string;
       steps?: number;
+      tokenURI?: string;
     };
 
     if (!userAddress || typeof userAddress !== "string") {
@@ -85,30 +80,38 @@ export async function POST(req: NextRequest) {
     }
 
     const explanation = generateExplanation(steps);
-
     const score = explanation.score;
     const levelData = calculateLevel(score);
 
-    const svg = generateSVG(score, levelData.label, steps);
+    const today = getTaipeiDate();
+    const yesterdayDate = getTaipeiDate(-1);
 
-    const imageBase64 = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+    let previousMetadata: any = null;
 
-    const today = new Date().toISOString().slice(0, 10);
+    if (tokenURI) {
+      previousMetadata = await fetchMetadata(tokenURI);
+    }
 
-    const prevStreak = 0;
-    const lastDate = "";
+    const prevStreak = Number(getAttr(previousMetadata, "Streak") || 0);
+    const lastDate = getAttr(previousMetadata, "Last Updated Date");
 
-    let streak = prevStreak;
+    let streak = 0;
 
     if (steps >= 8000) {
-      if (lastDate === yesterday(today)) {
-        streak += 1;
-      } else if (lastDate !== today) {
+      if (lastDate === today) {
+        streak = prevStreak > 0 ? prevStreak : 1;
+      } else if (lastDate === yesterdayDate) {
+        streak = prevStreak + 1;
+      } else {
         streak = 1;
       }
     } else {
       streak = 0;
     }
+
+    const svg = generateSVG(score, levelData.label, steps);
+
+    const imageBase64 = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 
     const metadata = {
       name: "Carbon Identity",
@@ -223,4 +226,37 @@ function generateSVG(score: number, levelLabel: string, steps: number) {
         </text>
       </svg>
     `;
+}
+
+async function fetchMetadata(uri: string) {
+  try {
+    const url = uri.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function getAttr(metadata: any, key: string) {
+  return metadata?.attributes?.find((a: any) => a.trait_type === key)?.value;
+}
+
+function getTaipeiDate(offsetDays = 0) {
+  const now = new Date();
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+
+  const year = Number(parts.find((p) => p.type === "year")?.value);
+  const month = Number(parts.find((p) => p.type === "month")?.value);
+  const day = Number(parts.find((p) => p.type === "day")?.value);
+
+  const date = new Date(Date.UTC(year, month - 1, day + offsetDays));
+  return date.toISOString().slice(0, 10);
 }
